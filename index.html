@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BLE Characteristic Logger</title>
+  <title>BLE Characteristic Logger v0.3</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0a0a0a" />
   <style>
@@ -37,6 +37,7 @@
   <h1>BLE Characteristic Logger</h1>
   <button id="connect">Connect & Scan</button>
   <button id="download">Download JSON</button>
+  <button id="analyze">Ask OpenAI</button>
   <pre id="log"></pre>
 
   <script>
@@ -113,8 +114,58 @@
       URL.revokeObjectURL(url);
     }
 
+    async function askOpenAI() {
+      let apiKey = localStorage.getItem('openai_api_key');
+      if (!apiKey) {
+        apiKey = prompt('Enter your OpenAI API key:');
+        if (!apiKey) {
+          log('API key required.');
+          return;
+        }
+        localStorage.setItem('openai_api_key', apiKey);
+      }
+
+      log('Sending data to OpenAI for analysis...');
+
+      const systemPrompt = `You are a BLE device analyst. The user will give you JSON logs of scanned BLE services and characteristics. Your job is to:
+- Identify the type of device
+- Interpret the services and characteristics
+- Use known UUIDs or external knowledge to explain unclear values
+- Give a concise summary of the device's likely purpose and manufacturer`;
+
+      const userPrompt = `Here is the BLE scan result:\n\n${JSON.stringify(results, null, 2)}`;
+
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ]
+          })
+        });
+
+        if (!res.ok) {
+          log('Error from OpenAI API: ' + res.status);
+          return;
+        }
+
+        const json = await res.json();
+        log('\n--- OpenAI Response ---\n' + json.choices[0].message.content);
+      } catch (err) {
+        log('OpenAI request failed: ' + err);
+      }
+    }
+
     document.getElementById('connect').addEventListener('click', connectAndScan);
     document.getElementById('download').addEventListener('click', downloadJSON);
+    document.getElementById('analyze').addEventListener('click', askOpenAI);
   </script>
 </body>
 </html>
