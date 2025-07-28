@@ -56,6 +56,13 @@
           optionalServices: ['battery_service', 'device_information'] // expand as needed
         });
 
+        log(`Device: ${device.name || '(no name)'} — ID: ${device.id} — GATT: ${device.gatt ? 'OK' : 'Missing'}`);
+
+        if (!device.gatt) {
+          log('Skipping: device does not expose a GATT server.');
+          return;
+        }
+
         log(`Connecting to GATT server of ${device.name || 'Unnamed device'}...`);
         const server = await device.gatt.connect();
 
