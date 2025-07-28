@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BLE Characteristic Logger v0.3</title>
+  <title>BLE Characteristic Logger v0.4</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0a0a0a" />
   <style>
@@ -49,7 +49,7 @@
       logElement.textContent += text + '\n';
     }
 
-    async function connectAndScan() {
+    async function connectAndScan() {  
       try {
         log('Requesting BLE device...');
         const device = await navigator.bluetooth.requestDevice({
@@ -64,6 +64,8 @@
           return;
         }
 
+        results = [];
+        
         log(`Connecting to GATT server of ${device.name || 'Unnamed device'}...`);
         const server = await device.gatt.connect();
 
