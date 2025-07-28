@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLE Characteristic Logger</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <style>
+    body {
+      font-family: monospace;
+      background: #111;
+      color: #0f0;
+      margin: 0;
+      padding: 1rem;
+    }
+    button {
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 0.5rem 1rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: #000;
+      padding: 1rem;
+      border: 1px solid #0f0;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>BLE Characteristic Logger</h1>
+  <button id="connect">Connect & Scan</button>
+  <button id="download">Download JSON</button>
+  <pre id="log"></pre>
+
+  <script>
+    const logElement = document.getElementById('log');
+    const results = [];
+
+    function log(text) {
+      console.log(text);
+      logElement.textContent += text + '\n';
+    }
+
+    async function connectAndScan() {
+      try {
+        log('Requesting BLE device...');
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service', 'device_information'] // expand as needed
+        });
+
+        log(`Connecting to GATT server of ${device.name || 'Unnamed device'}...`);
+        const server = await device.gatt.connect();
+
+        const services = await server.getPrimaryServices();
+        log(`Found ${services.length} services.`);
+
+        for (const service of services) {
+          const serviceInfo = {
+            uuid: service.uuid,
+            characteristics: []
+          };
+
+          const characteristics = await service.getCharacteristics();
+          for (const char of characteristics) {
+            let valueStr = '(unreadable)';
+            try {
+              const value = await char.readValue();
+              const values = [];
+              for (let i = 0; i < value.byteLength; i++) {
+                values.push(value.getUint8(i));
+              }
+              valueStr = values.join(', ');
+            } catch (e) {
+              valueStr = '(read error)';
+            }
+            const charData = {
+              uuid: char.uuid,
+              properties: char.properties,
+              value: valueStr
+            };
+            serviceInfo.characteristics.push(charData);
+            log(`Service: ${service.uuid} Char: ${char.uuid} = ${valueStr}`);
+          }
+          results.push(serviceInfo);
+        }
+      } catch (e) {
+        log('Error: ' + e);
+      }
+    }
+
+    function downloadJSON() {
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ble_log.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('connect').addEventListener('click', connectAndScan);
+    document.getElementById('download').addEventListener('click', downloadJSON);
+  </script>
+</body>
+</html>
